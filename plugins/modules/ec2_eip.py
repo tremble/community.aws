@@ -234,6 +234,48 @@ from ansible_collections.amazon.aws.plugins.module_utils.core import AnsibleAWSM
 from ansible_collections.amazon.aws.plugins.module_utils.core import is_boto3_error_code
 from ansible_collections.amazon.aws.plugins.module_utils.ec2 import AWSRetry
 from ansible_collections.amazon.aws.plugins.module_utils.ec2 import ansible_dict_to_boto3_filter_list
+from ansible_collections.amazon.aws.plugins.module_utils.ec2 import ansible_dict_to_boto3_tag_list
+from ansible_collections.amazon.aws.plugins.module_utils.ec2 import boto3_tag_list_to_ansible_dict
+from ansible_collections.amazon.aws.plugins.module_utils.ec2 import compare_aws_tags
+
+
+def tag_eip(ec2, module, allocation_id):
+
+    changed = False
+    # We ony update tags if the parameter is explicitly set
+    if module.params.get('tags') is None:
+        return changed
+
+    try:
+        eips = ec2.describe_addresses(AllocationIds=[allocation_id], aws_retry=True)
+    except (botocore.exceptions.BotoCoreError, botocore.exceptions.ClientError) as e:
+        module.fail_json_aws(e, msg='Failed to describe EIP')
+
+    if len(eips['Addresses']) != 1:
+        module.fail_json('Failed to find unique EIP: {0}'.format(allocation_id))
+    eip = eips['Addresses'][0]
+
+    new_tags = module.params.get('tags')
+    old_tags = boto3_tag_list_to_ansible_dict(eip.get('Tags'))
+
+    tags_to_set, tags_to_delete = compare_aws_tags(
+        old_tags, new_tags,
+        purge_tags=module.params.get('purge_tags'),
+    )
+    if module.check_mode:
+        return bool(tags_to_delete or tags_to_set)
+    if tags_to_set:
+        ec2.create_tags(
+            Resources=[allocation_id],
+            Tags=ansible_dict_to_boto3_tag_list(tags_to_set))
+        changed |= True
+    if tags_to_delete:
+        delete_with_current_values = dict((k, old_tags.get(k)) for k in tags_to_delete)
+        ec2.delete_tags(
+            Resources=[allocation_id],
+            Tags=ansible_dict_to_boto3_tag_list(delete_with_current_values))
+        changed |= True
+    return changed
 
 
 def associate_ip_and_device(ec2, module, address, private_ip_address, device_id, allow_reassociation, check_mode, is_instance=True):
@@ -581,6 +623,7 @@ def main():
                 module.fail_json(msg="If you are specifying an ENI, in_vpc must be true")
             is_instance = False
 
+    # Tags for *searching* for an EIP.
     tag_dict = generate_tag_dict(module, tag_name, tag_value)
 
     try:
@@ -609,6 +652,10 @@ def main():
                     'public_ip': address['PublicIp'],
                     'allocation_id': address['AllocationId']
                 }
+
+            tag_change = tag_eip(ec2, module, result['allocation_id'])
+            if tag_change:
+                result['changed'] = True
         else:
             if device_id:
                 disassociated = ensure_absent(
