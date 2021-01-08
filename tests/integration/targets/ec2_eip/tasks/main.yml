@@ -104,6 +104,8 @@
   - name: Allocate a new eip (no conditions)
     ec2_eip:
       state: present
+      tags:
+        AnsibleEIPTestPrefix: '{{ resource_prefix }}'
     register: eip
   - ec2_eip_info: null
     register: eip_info
