@@ -63,6 +63,14 @@ options:
          network interface or instance to be re-associated with the specified instance or interface.
     default: false
     type: bool
+  tags:
+    description: A dictionary of tags to apply to the EIP.
+    type: dict
+  purge_tags:
+    description: Whether the I(tags) argument should cause tags not in the
+      dictionary to be removed.
+    default: False
+    type: bool
   tag_name:
     description:
       - When I(reuse_existing_ip_allowed=true), supplement with this option to only reuse
@@ -530,6 +538,8 @@ def main():
         allow_reassociation=dict(type='bool', default=False),
         wait_timeout=dict(type='int', removed_at_date='2022-06-01', removed_from_collection='community.aws'),
         private_ip_address=dict(),
+        tags=dict(required=False, type='dict'),
+        purge_tags=dict(required=False, type='bool', default=True),
         tag_name=dict(),
         tag_value=dict(),
         public_ipv4_pool=dict()
