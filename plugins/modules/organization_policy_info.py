@@ -165,88 +165,9 @@ policies:
             sample: 'ACCOUNT'
 '''
 
-try:
-    import botocore
-except ImportError:
-    pass  # caught by AnsibleAWSModule
-
-from ansible.module_utils.common.dict_transformations import camel_dict_to_snake_dict
 from ansible_collections.amazon.aws.plugins.module_utils.core import AnsibleAWSModule
 from ansible_collections.amazon.aws.plugins.module_utils.ec2 import AWSRetry
-from ansible_collections.amazon.aws.plugins.module_utils.ec2 import boto3_tag_list_to_ansible_dict
-
-
-_TYPE_MAPPING = {
-    'service_control': 'SERVICE_CONTROL_POLICY',
-    'aiservices_opt_out': 'AISERVICES_OPT_OUT_POLICY',
-    'backup': 'BACKUP_POLICY',
-    'tag': 'TAG_POLICY',
-}
-
-
-#  Wrap Paginated queries because retry_decorator doesn't handle pagination
-@AWSRetry.jittered_backoff()
-def _list_policies(connection, **params):
-    paginator = connection.get_paginator('list_policies')
-    return paginator.paginate(**params).build_full_result()
-
-
-@AWSRetry.jittered_backoff()
-def _list_targets(connection, **params):
-    paginator = connection.get_paginator('list_targets_for_policy')
-    return paginator.paginate(**params).build_full_result()
-
-
-def describe_policies(connection, module, policies):
-    described_policies = []
-    for policy in policies:
-        try:
-            description = connection.describe_policy(aws_retry=True, PolicyId=policy)['Policy']
-        except (botocore.exceptions.BotoCoreError, botocore.exceptions.ClientError) as e:
-            module.fail_json_aws(e, 'Failed to describe policy {0}'.format(policy))
-        if module.params.get('fetch_targets'):
-            try:
-                targets = _list_targets(connection, PolicyId=policy)
-            except (botocore.exceptions.BotoCoreError, botocore.exceptions.ClientError) as e:
-                module.fail_json_aws(e, 'Failed to policy targets for policy {0}'.format(policy))
-            description.update(targets)
-
-        described_policies += [description]
-
-    return described_policies
-
-
-def normalize_policies(policies):
-    normalized = []
-    for policy in policies:
-        _policy = camel_dict_to_snake_dict(policy)
-        # Amazon will likely suddenly dump this on us, since we can't cleanly
-        # deprecate return values attempt to future proof
-        if policy.get('Tags'):
-            _policy['tags'] = boto3_tag_list_to_ansible_dict(policy.get('Tags'))
-        if policy.get('PolicySummary') and policy.get('PolicySummary').get('Tags'):
-            tags = boto3_tag_list_to_ansible_dict(policy.get('PolicySummary').get('Tags'))
-            _policy['policy_summary']['tags'] = tags
-        normalized += [_policy]
-    return normalized
-
-
-def list_policies(connection, module):
-    if module.params.get('policy_type'):
-        policy_type = module.params.get('policy_type')
-        policy_type = _TYPE_MAPPING.get(policy_type, policy_type)
-    else:
-        policy_type = 'SERVICE_CONTROL_POLICY'
-    # Unlike most 'filters' this is just a single string
-    try:
-        policies = _list_policies(connection, Filter=policy_type)
-    except (botocore.exceptions.BotoCoreError, botocore.exceptions.ClientError) as e:
-        module.fail_json_aws(e, 'Failed to list policies')
-
-    if not policies['Policies']:
-        module.fail_json('Failed to list policies - Policies missing from returned value.')
-
-    return [policy.get('Id') for policy in policies['Policies']]
+from ansible_collections.community.aws.plugins.module_utils.organization import Policies
 
 
 def main():
@@ -264,15 +185,17 @@ def main():
     module = AnsibleAWSModule(argument_spec=argument_spec,
                               mutually_exclusive=[['policy_ids', 'policy_type']],
                               supports_check_mode=True)
-
     connection = module.client('organizations', retry_decorator=AWSRetry.jittered_backoff())
+
+    manager = Policies(connection, module)
+
     if module.params.get('policy_ids'):
         policies = module.params.get('policy_ids')
     else:
-        policies = list_policies(connection, module)
+        policies = manager.list_policies(policy_type=module.params.get('policy_type'))
 
-    policies = describe_policies(connection, module, policies)
-    module.exit_json(policies=normalize_policies(policies))
+    policies = manager.describe_policies(policies)
+    module.exit_json(policies=manager.normalize_policies(policies))
 
 
 if __name__ == '__main__':
