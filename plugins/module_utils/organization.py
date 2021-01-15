@@ -105,9 +105,12 @@ class Policies(object):
                 Name=name,
                 Type=policy_type)['Policy']
             # Tagging support added to create 2020-09
-            self.connection.tag_resource(
+            AWSRetry.jittered_backoff(
+                catch_extra_error_codes=['TargetNotFoundException']
+            )(self.connection.tag_resource)(
                 ResourceId=created['PolicySummary']['Id'],
-                Tags=ansible_dict_to_boto3_tag_list(tags))
+                Tags=ansible_dict_to_boto3_tag_list(tags)
+            )
         except (botocore.exceptions.BotoCoreError, botocore.exceptions.ClientError) as e:
             self.module.fail_json_aws(e, 'Failed to create policy')
         return (True, created['PolicySummary']['Id'])
