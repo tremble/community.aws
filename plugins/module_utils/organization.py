@@ -114,6 +114,8 @@ class Policies(object):
                 changed = True
 
         try:
+            if self.module.check_mode:
+                return True
             self.connection.delete_policy(aws_retry=True, PolicyId=policy)
             changed = True
         except is_boto3_error_code('PolicyNotFoundException'):
