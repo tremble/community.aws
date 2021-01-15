@@ -34,6 +34,8 @@ class Policies(object):
             _policy = camel_dict_to_snake_dict(policy)
             if policy.get('Tags'):
                 _policy['tags'] = boto3_tag_list_to_ansible_dict(policy.get('Tags'))
+            elif policy.get('Tags') is not None:
+                _policy['tags'] = {}
             normalized += [_policy]
         return normalized
 
