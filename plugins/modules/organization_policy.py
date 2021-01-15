@@ -51,12 +51,25 @@ options:
   name:
     description:
       - The name of the Policy.
+      - Required when creating a new policy.
       - To change the name of an existing policy specify both I(name) and I(policy_id).
-      - Note: when both I(policy_id) and I(name) are specified, I(policy_id)
-        will be used to select the policy to modify.
+      - When both I(policy_id) and I(name) are specified, I(policy_id) will be used to select
+        the policy to modify.
       - At least one of I(policy_id) and I(name) must be specified.
     type: str
     required: false
+  description:
+    description:
+      - A description for the policy.
+    type: str
+    required: False
+  policy_content:
+    description:
+      - The content for the policy.
+      - Required when creating a new policy.
+    type: json
+    required: False
+    aliases: ['content', 'policy']
   force_delete:
     description:
       - When deleting a policy ensure that it is detattched from all targets
@@ -64,6 +77,19 @@ options:
     type: bool
     required: false
     default: false
+  tags:
+    description:
+      - A dictionary of tags to set on the policy.
+    type: dict
+    required: false
+  purge_tags:
+    description:
+      - Delete any tags not specified in the task that are on the policy.
+      - Only has an effect when tags is explicitly set.
+      - To remove all tags set I(tags={}) and I(purge_tags=True).
+    type: bool
+    required: false
+    default: true
 extends_documentation_fragment:
 - amazon.aws.aws
 - amazon.aws.ec2
@@ -192,18 +218,23 @@ def main():
         state=dict(required=False, type='str', default='present',
                    choices=['present', 'absent']),
         name=dict(required=False, type='str'),
+        description=dict(required=False, type='str'),
         policy_id=dict(required=False, type='str'),
         policy_type=dict(required=False, type='str',
                          choices=['service_control', 'SERVICE_CONTROL_POLICY',
                                   'aiservices_opt_out', 'AISERVICES_OPT_OUT_POLICY',
                                   'backup', 'BACKUP_POLICY',
                                   'tag', 'TAG_POLICY']),
+        policy_content=dict(required=False, type='json', aliases=['policy', 'content']),
         force_delete=dict(required=False, type='bool', default=False),
+        tags=dict(type='dict', required=False),
+        purge_tags=dict(type='bool', required=False, default=True),
     )
 
     module = AnsibleAWSModule(argument_spec=argument_spec,
                               mutually_exclusive=[('policy_id', 'policy_type')],
                               required_one_of=[('name', 'policy_id')],
+                              required_if=[('state', 'present', ('name',))],
                               supports_check_mode=True)
 
     retry_decorator = AWSRetry.jittered_backoff(
@@ -229,10 +260,33 @@ def main():
         force_delete = module.params.get('force_delete')
         changed = manager.delete_policies(policy_ids, force_delete)
         module.exit_json(changed=changed)
+    elif policy_ids:
+        changed = manager.update_policy(
+            policy_ids[0],
+            name=module.params.get('name'),
+            content=module.params.get('policy_content'),
+            description=module.params.get('description'))
+        changed |= manager.update_policy_tags(
+            policy_ids[0],
+            tags=module.params.get('tags'),
+            purge_tags=module.params.get('purge_tags'))
+    else:
+        if not module.params.get('policy_content'):
+            module.fail_json(msg="Policy '{0}' could not be found.  Unable to "
+                                 "create a new policy because policy_content "
+                                 "is not set".format(module.params.get('name')))
+        changed, policy_id = manager.create_policy(
+            policy_type=module.params.get('policy_type'),
+            name=module.params.get('name'),
+            content=module.params.get('policy_content'),
+            description=module.params.get('description'),
+            tags=module.params.get('tags'))
+        if policy_id:
+            policy_ids = [policy_id]
 
     policies = manager.describe_policies(policy_ids)
 
-    module.exit_json(policies=manager.normalize_policies(policies))
+    module.exit_json(changed=changed, policies=manager.normalize_policies(policies))
 
 
 if __name__ == '__main__':
