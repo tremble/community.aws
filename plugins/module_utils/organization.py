@@ -59,7 +59,9 @@ class Policies(object):
         """
         try:
             description = self.connection.describe_policy(aws_retry=True, PolicyId=policy)['Policy']
-        except (botocore.exceptions.BotoCoreError, botocore.exceptions.ClientError) as e:
+        except is_boto3_error_code('PolicyNotFoundException'):
+            return None
+        except (botocore.exceptions.BotoCoreError, botocore.exceptions.ClientError) as e:  # pylint: disable=duplicate-except
             self.module.fail_json_aws(e, 'Failed to describe policy {0}'.format(policy))
         try:
             description['Tags'] = self.connection.list_tags_for_resource(aws_retry=True, ResourceId=policy)['Tags']
@@ -140,7 +142,8 @@ class Policies(object):
         described_policies = []
         for policy in policies:
             description = self.describe_policy(policy)
-            described_policies += [description]
+            if description:
+                described_policies += [description]
         return described_policies
 
     def _list_policies(self, policy_type='SERVICE_CONTROL_POLICY'):
