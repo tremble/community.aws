@@ -248,7 +248,9 @@ def main():
     if module.params.get('policy_id'):
         policy_ids = [module.params.get('policy_id')]
     elif module.params.get('name'):
-        policy_ids = manager.find_policy_by_name(module.params.get('name'))
+        policy_ids = manager.find_policy_by_name(
+            module.params.get('name'),
+            module.params.get('policy_type'))
         if len(policy_ids) > 1:
             module.fail_json(msg="Multiple policies found with the name {0}, "
                              "please use policy_id to explicitly choose a single "

@@ -23,6 +23,7 @@ from ansible_collections.amazon.aws.plugins.module_utils.ec2 import compare_poli
 class Policies(object):
 
     _TYPE_MAPPING = {
+        None: 'SERVICE_CONTROL_POLICY',
         'service_control': 'SERVICE_CONTROL_POLICY',
         'aiservices_opt_out': 'AISERVICES_OPT_OUT_POLICY',
         'backup': 'BACKUP_POLICY',
@@ -90,9 +91,26 @@ class Policies(object):
 
         return True
 
-    def create_policy(self, name, content, policy_type='SERVICE_CONTROL_POLICY', description="", tags=None):
+    def create_policy(self, name, content, policy_type, description="", tags=None):
         policy_type = self._TYPE_MAPPING.get(policy_type, policy_type)
-        return False, None
+        if self.module.check_mode:
+            return (True, None)
+        if tags is None:
+            tags = {}
+        try:
+            created = self.connection.create_policy(
+                aws_retry=True,
+                Content=content,
+                Description=description,
+                Name=name,
+                Type=policy_type)['Policy']
+            # Tagging support added to create 2020-09
+            self.connection.tag_resource(
+                ResourceId=created['PolicySummary']['Id'],
+                Tags=ansible_dict_to_boto3_tag_list(tags))
+        except (botocore.exceptions.BotoCoreError, botocore.exceptions.ClientError) as e:
+            self.module.fail_json_aws(e, 'Failed to create policy')
+        return (True, created['PolicySummary']['Id'])
 
     def update_policy_tags(self, policy_id, tags=None, purge_tags=True):
         if tags is None:
@@ -221,7 +239,7 @@ class Policies(object):
                 described_policies += [description]
         return described_policies
 
-    def _list_policies(self, policy_type='SERVICE_CONTROL_POLICY'):
+    def _list_policies(self, policy_type):
         """
         Fetches a list of policy IDs of type policy_type.
         """
@@ -242,7 +260,7 @@ class Policies(object):
         policies = self._list_policies(policy_type=policy_type)
         return [policy.get('Id') for policy in policies]
 
-    def find_policy_by_name(self, name, policy_type='SERVICE_CONTROL_POLICY'):
+    def find_policy_by_name(self, name, policy_type):
         """
         Iterates through the list of known policies and returns the ID of the
         policy with name set to name.
