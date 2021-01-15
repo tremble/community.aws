@@ -100,6 +100,7 @@ class Policies(object):
         if targets:
             # This can have a very broad affect, use force_delete as a molly guard.
             if not force_delete:
+                targets = [camel_dict_to_snake_dict(target) for target in targets]
                 self.module.fail_json('Unable to delete policy {0} - still attached'.format(policy),
                                       targets=targets)
             if self.module.check_mode:
