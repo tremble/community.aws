@@ -45,9 +45,15 @@ class Policies(object):
             normalized += [_policy]
         return normalized
 
-    def __init__(self, connection, module):
-        self.connection = connection
+    def __init__(self, module):
         self.module = module
+
+        self.retry_decorator = AWSRetry.jittered_backoff(
+            catch_extra_error_codes=[
+                'ConcurrentModificationException',
+                'PolicyChangesInProgressException'])
+
+        self.connection = module.client('organizations', retry_decorator=retry_decorator)
         self.fetch_targets = module.params.get('fetch_targets', False)
 
     #  Wrap Paginated queries because retry_decorator doesn't handle pagination

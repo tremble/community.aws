@@ -166,7 +166,6 @@ policies:
 '''
 
 from ansible_collections.amazon.aws.plugins.module_utils.core import AnsibleAWSModule
-from ansible_collections.amazon.aws.plugins.module_utils.ec2 import AWSRetry
 from ansible_collections.community.aws.plugins.module_utils.organization import Policies
 
 
@@ -185,9 +184,8 @@ def main():
     module = AnsibleAWSModule(argument_spec=argument_spec,
                               mutually_exclusive=[['policy_ids', 'policy_type']],
                               supports_check_mode=True)
-    connection = module.client('organizations', retry_decorator=AWSRetry.jittered_backoff())
 
-    manager = Policies(connection, module)
+    manager = Policies(module)
 
     if module.params.get('policy_ids'):
         policies = module.params.get('policy_ids')
