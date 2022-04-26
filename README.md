@@ -274,6 +274,7 @@ You can also join us on:
 - [Getting Started With AWS Ansible Module Development and Community Contribution](https://www.ansible.com/blog/getting-started-with-aws-ansible-module-development)
 
 ## Release notes
+
 <!--Add a link to a changelog.rst file or an external docsite to cover this information. -->
 
 ## Roadmap
