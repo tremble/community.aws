@@ -11,7 +11,9 @@ jobs:
     permissions:
       contents: read
     name: Build Ansible Docs
-    uses: ansible-community/github-docs-build/.github/workflows/_shared-docs-build-pr.yml@main
+    uses: tremble/github-docs-build/.github/workflows/_shared-docs-build-pr.yml@main
+    with:
+      extra-collections: 'amazon.aws'
 
   comment:
     permissions:
