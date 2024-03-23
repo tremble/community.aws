@@ -209,8 +209,23 @@ class InventoryModule(AWSInventoryBase):
         if not accounts:
             return
         for account in accounts.get("Accounts") or []:
+            ou_info = self._get_account_ou(account_id=account.get("Id"))
+            account['OU'] = ou_info
             self._expand_tags(account)
             resource["Accounts"].append(account)
+
+    def _get_account_ou(self, account_id):
+        try:
+            paginator = self._orgs_client.get_paginator('list_parents')
+            for response in paginator.paginate(ChildId=account_id):
+                for parent in response['Parents']:
+                    if parent['Type'] == 'ORGANIZATIONAL_UNIT':
+                        ou_details = self._orgs_client.describe_organizational_unit(OrganizationalUnitId=parent['Id'])
+                        return ou_details['OrganizationalUnit']['Name']  # here we can add some more data to be returned
+        except Exception as e:
+            self.fail_aws("Error getting the OU for the account {}: {}".format(account_id, e), exception=e)
+        return None
+
 
     def _expand_ous(self, resource):
         if not resource:
