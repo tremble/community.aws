@@ -123,7 +123,7 @@ def organizations_error_handler(description):
                     _self.fail_aws(f"Failed to {description}", exception=e)
             except is_boto3_error_code("AWSOrganizationsNotInUseException"):
                 _self.debug("AWS Organizations not in use")
-            except (botocore.exceptions.WaiterError) as e:
+            except botocore.exceptions.WaiterError as e:
                 _self.fail_aws(f"Failed waiting for {description}", exception=e)
             except (botocore.exceptions.ClientError, botocore.exceptions.BotoCoreError) as e:
                 _self.fail_aws(f"Failed to {description}", exception=e)
@@ -210,22 +210,21 @@ class InventoryModule(AWSInventoryBase):
             return
         for account in accounts.get("Accounts") or []:
             ou_info = self._get_account_ou(account_id=account.get("Id"))
-            account['OU'] = ou_info
+            account["OU"] = ou_info
             self._expand_tags(account)
             resource["Accounts"].append(account)
 
     def _get_account_ou(self, account_id):
         try:
-            paginator = self._orgs_client.get_paginator('list_parents')
+            paginator = self._orgs_client.get_paginator("list_parents")
             for response in paginator.paginate(ChildId=account_id):
-                for parent in response['Parents']:
-                    if parent['Type'] == 'ORGANIZATIONAL_UNIT':
-                        ou_details = self._orgs_client.describe_organizational_unit(OrganizationalUnitId=parent['Id'])
-                        return ou_details['OrganizationalUnit']['Name']  # here we can add some more data to be returned
+                for parent in response["Parents"]:
+                    if parent["Type"] == "ORGANIZATIONAL_UNIT":
+                        ou_details = self._orgs_client.describe_organizational_unit(OrganizationalUnitId=parent["Id"])
+                        return ou_details["OrganizationalUnit"]["Name"]  # here we can add some more data to be returned
         except Exception as e:
             self.fail_aws("Error getting the OU for the account {}: {}".format(account_id, e), exception=e)
         return None
-
 
     def _expand_ous(self, resource):
         if not resource:
