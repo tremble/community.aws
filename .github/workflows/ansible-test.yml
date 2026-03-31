@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         ansible-core-version:
-          - stable-2.16
+          # - stable-2.16
           - stable-2.17
           - stable-2.18
           - stable-2.19
@@ -59,10 +59,10 @@ jobs:
           - ansible-core-version: stable-2.17
             python-version: "3.14"
           # stable-2.16 excludes (older version, limit to older Python)
-          - ansible-core-version: stable-2.16
-            python-version: "3.13"
-          - ansible-core-version: stable-2.16
-            python-version: "3.14"
+          # - ansible-core-version: stable-2.16
+          #   python-version: "3.13"
+          # - ansible-core-version: stable-2.16
+          #   python-version: "3.14"
     steps:
       - name: Perform sanity testing
         uses: ansible-community/ansible-test-gh-action@d3a8ec7a59694e25e210fcd44738910149537f0e # v1.17.0
@@ -78,7 +78,7 @@ jobs:
       fail-fast: false
       matrix:
         ansible-core-version:
-          - stable-2.16
+          # - stable-2.16
           - stable-2.17
           - stable-2.18
           - stable-2.19
@@ -109,17 +109,23 @@ jobs:
           # stable-2.19 excludes
           - ansible-core-version: stable-2.19
             python-version: "3.10"
+          - ansible-core-version: stable-2.19
+            python-version: "3.14"
           # stable-2.18 excludes
           - ansible-core-version: stable-2.18
             python-version: "3.10"
+          - ansible-core-version: stable-2.18
+            python-version: "3.14"
           # stable-2.17 excludes
           - ansible-core-version: stable-2.17
             python-version: "3.13"
-          # stable-2.16 excludes (older version, limit to older Python)
-          - ansible-core-version: stable-2.16
-            python-version: "3.13"
-          - ansible-core-version: stable-2.16
+          - ansible-core-version: stable-2.17
             python-version: "3.14"
+          # # stable-2.16 excludes (older version, limit to older Python)
+          # - ansible-core-version: stable-2.16
+          #   python-version: "3.13"
+          # - ansible-core-version: stable-2.16
+          #   python-version: "3.14"
     steps:
       - name: Perform unit testing
         uses: ansible-community/ansible-test-gh-action@d3a8ec7a59694e25e210fcd44738910149537f0e # v1.17.0
