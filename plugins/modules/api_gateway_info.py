@@ -8,9 +8,9 @@ DOCUMENTATION = r"""
 ---
 module: api_gateway_info
 version_added: 6.1.0
-short_description: Gather information about ec2 instances in AWS
+short_description: Gather information about API Gateway in AWS
 description:
-  - Gather information about ec2 instances in AWS
+  - Gather information about API Gateway REST APIs in AWS
 options:
   ids:
     description:
