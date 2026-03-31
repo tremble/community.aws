@@ -70,7 +70,7 @@ jobs:
           ansible-core-version: ${{ matrix.ansible-core-version }}
           testing-type: sanity
           target-python-version: ${{ matrix.python-version }}
-          pre-test-cmd: ansible-galaxy collection install -r tests/sanity/requirements.yml
+          test-deps: -r ansible_collections/community/aws/tests/sanity/requirements.yml
 
   units:
     runs-on: ubuntu-latest
@@ -127,4 +127,4 @@ jobs:
           ansible-core-version: ${{ matrix.ansible-core-version }}
           testing-type: units
           target-python-version: ${{ matrix.python-version }}
-          pre-test-cmd: ansible-galaxy collection install -r tests/unit/requirements.yml
+          test-deps: -r ansible_collections/community/aws/tests/unit/requirements.yml
